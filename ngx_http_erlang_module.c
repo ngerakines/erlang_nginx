@@ -111,7 +111,6 @@ static ngx_int_t ngx_http_erlang_handler(ngx_http_request_t *r) {
                 retbody = erl_element(2, emsg.msg);
                 int status_code = ERL_INT_VALUE(status);
                 char *body = (char *) ERL_BIN_PTR(retbody);
-                // int body_len = ERL_BIN_SIZE(retbody);
                 
                 if (status_code == 200) {
                     r->headers_out.status = NGX_HTTP_OK;
@@ -141,8 +140,7 @@ static ngx_int_t ngx_http_erlang_handler(ngx_http_request_t *r) {
                 if (rc == NGX_ERROR || rc > NGX_OK || r->header_only) {
                     return rc;
                 }
-                
-                // fprintf(stderr, "Discarding %d bytes to uid %d - user not connected\n", body_len, userid);                
+
                 erl_free_term(emsg.msg);    
                 erl_free_term(status);
                 erl_free_term(retbody);

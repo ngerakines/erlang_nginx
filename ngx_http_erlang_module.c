@@ -63,8 +63,10 @@ static ngx_int_t ngx_http_erlang_handler(ngx_http_request_t *r) {
     ngx_chain_t out;
 
     struct in_addr addr;
+    // TODO: Get this from nginx.
     addr.s_addr = inet_addr("192.168.100.94");
 
+    // TODO: Set this during the erlang message recieve loop.
     r->headers_out.content_type.len = sizeof("text/plain") - 1;
     r->headers_out.content_type.data = (u_char *) "text/plain";
 
@@ -77,11 +79,14 @@ static ngx_int_t ngx_http_erlang_handler(ngx_http_request_t *r) {
     
     erl_init(NULL, 0);
     
+    // TODO: Add secret to config
     if (erl_connect_init(1, "secret", 0) == -1) {
         erl_err_quit("erl_connect_init");
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
     
+    // TODO: Add node name to config
+    // TODO: Add node host to config
     if ((fd = erl_connect("handler@localhost")) < 0) {
         erl_err_quit("erl_connect");
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -89,29 +94,36 @@ static ngx_int_t ngx_http_erlang_handler(ngx_http_request_t *r) {
 
     fprintf(stderr, "Connected to handler@localhost\n\r");
 
+    // TODO: Send the headers and request body
     ETERM *arr[3], *emsg2; 
     arr[0] = SELF(fd); 
     arr[1] = erl_mk_int(r->method); 
     arr[2] = erl_mk_string((const char *) r->uri.data);
-    emsg2 = erl_mk_tuple(arr, 3); 
+    emsg2 = erl_mk_tuple(arr, 3);
+    // TODO: Set the registered process that is the handler in the config.
     erl_reg_send(fd, "demo_handler", emsg2);
 
+    // TODO: Find a way to fail gracefully if a message isn't recieved within
+    //       a specific amount of time.
+    // TODO: Set the timeout duration in config.
     while (1) {    
         got = erl_receive_msg(fd, buf, BUFSIZE, &emsg);
-        fprintf(stderr, "Got message\n\r");
         if (got == ERL_TICK) {
-            fprintf(stderr, " -- tick\n\r");
             continue;
         } else if (got == ERL_ERROR) {
-            fprintf(stderr, "ERL_ERROR from erl_receive_msg.\n");
+            // An internal error has occured.
+            r->headers_out.status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
             break;
         } else {
-            if (emsg.type == ERL_SEND) { // ERL_REG_SEND
+            if (emsg.type == ERL_SEND) {
+                // TODO: Handle response tuple: {StatusCode, Headers, Body}
                 status = erl_element(1, emsg.msg);
-                retbody = erl_element(2, emsg.msg);
+                retbody = erl_element(3, emsg.msg);
                 int status_code = ERL_INT_VALUE(status);
                 char *body = (char *) ERL_BIN_PTR(retbody);
                 
+                // TODO: Set status code from response tuple
                 if (status_code == 200) {
                     r->headers_out.status = NGX_HTTP_OK;
                 } else {
@@ -137,13 +149,15 @@ static ngx_int_t ngx_http_erlang_handler(ngx_http_request_t *r) {
 
                 rc = ngx_http_send_header(r);
                 
+                erl_free_term(emsg.msg);    
+                erl_free_term(status);
+                erl_free_term(retbody);
+                
+                // If there is a body component, run it through the next filter.
                 if (rc == NGX_ERROR || rc > NGX_OK || r->header_only) {
                     return rc;
                 }
 
-                erl_free_term(emsg.msg);    
-                erl_free_term(status);
-                erl_free_term(retbody);
                 break;
             }
         }
@@ -151,7 +165,6 @@ static ngx_int_t ngx_http_erlang_handler(ngx_http_request_t *r) {
 
     return ngx_http_output_filter(r, &out);
 }
-
 
 static char * ngx_http_erlang(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
     ngx_http_core_loc_conf_t  *clcf;

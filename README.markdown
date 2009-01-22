@@ -44,3 +44,7 @@ Results in this output in Erlang:
  * ngx\_http\_erlang\_module.c (108) - Set the timeout duration in config.
  * ngx\_http\_erlang\_module.c (120) - Handle response tuple: {StatusCode, Headers, Body}
  * ngx\_http\_erlang\_module.c (126) - Set status code from response tuple
+
+## License
+
+This software is Open Source under the MIT license.
